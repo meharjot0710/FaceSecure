@@ -67,7 +67,7 @@ def on_entry_button_click():
         if face_locations and brightness > brightness_threshold:
             image_filename = os.path.join(save_directory, "captured_image.jpg")
             cv2.imwrite(image_filename, frame)
-            log_message(f"Face detected. Image saved at {image_filename}")
+            log_message(f"Face detected.")
             break
 
         if time.time() - start_time > 10:
