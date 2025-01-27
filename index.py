@@ -1,10 +1,11 @@
 import tkinter as tk
-from tkinter import ttk, filedialog
+from tkinter import ttk
 import cv2
 import face_recognition
 import os
 import pandas as pd
 from datetime import datetime
+from tkinter import simpledialog
 import shutil
 
 # Ensure required directories exist
@@ -51,6 +52,20 @@ def load_known_faces():
 
 # Capture image from webcam
 def capture_image():
+    # Directory to store captured images
+    directory = "captured_faces"
+    # Check if the directory exists and has more than 5 images
+    files = sorted(
+        [os.path.join(directory, f) for f in os.listdir(directory) if f.endswith(".jpg")],
+        key=os.path.getctime
+    )
+    if len(files) > 4:
+        # Delete oldest images to maintain only 4 images
+        for file_to_delete in files[:-5]:
+            os.remove(file_to_delete)
+            log_message(f"Deleted old image: {file_to_delete}")
+
+    # Capture a new image
     video_capture = cv2.VideoCapture(0)
     if not video_capture.isOpened():
         log_message("Error: Webcam not accessible.")
@@ -61,7 +76,7 @@ def capture_image():
     video_capture.release()
 
     if ret:
-        filename = f"captured_faces/capture_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+        filename = os.path.join(directory, f"capture_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg")
         cv2.imwrite(filename, frame)
         log_message(f"Image captured and saved as {filename}")
         return filename
@@ -89,6 +104,8 @@ def process_image():
         return
 
     df = pd.read_excel(excel_file)
+    if "Date" not in df.columns:
+        df["Date"] = None
     date_today = datetime.now().strftime('%Y-%m-%d')
 
     for face_encoding in face_encodings:
@@ -123,7 +140,7 @@ def add_face():
     if not filename:
         return
 
-    name = filedialog.askstring("Input", "Enter the name for the captured face:")
+    name = simpledialog.askstring("Input", "Enter the name for the captured face:")
     if not name:
         log_message("Operation canceled: No name provided.")
         return
