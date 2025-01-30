@@ -1,3 +1,5 @@
+# Good till now
+
 import tkinter as tk
 from tkinter import ttk
 import cv2
@@ -5,23 +7,37 @@ import face_recognition
 import os
 import pandas as pd
 from datetime import datetime
-from tkinter import simpledialog
+from tkinter import simpledialog, messagebox
 import shutil
+import numpy as np
+import time
+import dlib
+from scipy.spatial import distance
+
 
 # Ensure required directories exist
 os.makedirs("known_faces", exist_ok=True)
 os.makedirs("captured_faces", exist_ok=True)
+os.makedirs("attendance_records", exist_ok=True)  # Directory for attendance files
 
 # Global variables
-log_widget = None
-excel_file = "Data.xlsx"
+# Global dictionary to store Roll Number to Name mapping
+roll_number_name_mapping = {}
 
-# Initialize Excel file
+log_widget = None
+subjects = ["Math", "Science", "History"]  # Subjects for attendance tracking
+
+detector = dlib.get_frontal_face_detector()
+predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
+
+# Initialize subject-wise Excel files
 def initialize_excel():
-    if not os.path.exists(excel_file):
-        df = pd.DataFrame(columns=["Date", "Name", "Entry Time", "Exit Time"])
-        df.to_excel(excel_file, index=False)
-        log_message("Initialized new Excel file: Data.xlsx")
+    for subject in subjects:
+        file_name = os.path.join("attendance_records", f"{subject}.xlsx")
+        if not os.path.exists(file_name):
+            df = pd.DataFrame(columns=["Roll Number"])
+            df.to_excel(file_name, index=False)
+            log_message(f"Initialized new Excel file: {file_name}")
 
 # Log message function
 def log_message(message):
@@ -35,58 +51,118 @@ def log_message(message):
 
 # Load known faces
 def load_known_faces():
+    global roll_number_name_mapping
     known_faces = []
-    known_names = []
+    known_roll_numbers = {}
+
+    # Ensure the dictionary is initialized before clearing
+    if 'roll_number_name_mapping' not in globals():
+        roll_number_name_mapping = {}
+
+    roll_number_name_mapping.clear()
 
     for filename in os.listdir("known_faces"):
         image_path = os.path.join("known_faces", filename)
         try:
             image = face_recognition.load_image_file(image_path)
-            encoding = face_recognition.face_encodings(image)[0]
-            known_faces.append(encoding)
-            known_names.append(os.path.splitext(filename)[0])
+            encodings = face_recognition.face_encodings(image)
+
+            if encodings:
+                encoding = encodings[0]
+                known_faces.append(encoding)
+                name, roll_number = os.path.splitext(filename)[0].split("_")
+                known_roll_numbers[roll_number] = encoding
+                roll_number_name_mapping[roll_number] = name
+            else:
+                log_message(f"Warning: No face detected in {filename}. Skipping.")
         except Exception as e:
             log_message(f"Error loading {filename}: {e}")
 
-    return known_faces, known_names
+    return known_faces, known_roll_numbers
 
-# Capture image from webcam
-def capture_image():
-    # Directory to store captured images
-    directory = "captured_faces"
-    # Check if the directory exists and has more than 5 images
+
+# Ensure captured_faces folder has at most 2 images
+def manage_captured_faces():
     files = sorted(
-        [os.path.join(directory, f) for f in os.listdir(directory) if f.endswith(".jpg")],
+        [os.path.join("captured_faces", f) for f in os.listdir("captured_faces") if f.endswith(".jpg")],
         key=os.path.getctime
     )
-    if len(files) > 4:
-        # Delete oldest images to maintain only 4 images
-        for file_to_delete in files[:-5]:
-            os.remove(file_to_delete)
-            log_message(f"Deleted old image: {file_to_delete}")
+    while len(files) > 2:
+        os.remove(files[0])
+        log_message(f"Deleted old image: {files[0]}")
+        files.pop(0)
 
-    # Capture a new image
+
+# Detect head movement
+def detect_head_movement(landmarks, initial_nose):
+    current_nose = (landmarks.part(30).x, landmarks.part(30).y)
+    movement = abs(current_nose[0] - initial_nose[0]) + abs(current_nose[1] - initial_nose[1])
+    return movement > 3  # Adjust threshold as needed
+
+
+def is_blinking(eye):
+    A = distance.euclidean(eye[1], eye[5])
+    B = distance.euclidean(eye[2], eye[4])
+    C = distance.euclidean(eye[0], eye[3])
+    ear = (A + B) / (2.0 * C)
+    return ear < 0.2  # Lowered threshold for better accuracy
+
+def capture_image():
     video_capture = cv2.VideoCapture(0)
     if not video_capture.isOpened():
         log_message("Error: Webcam not accessible.")
         return None
 
-    log_message("Capturing image...")
-    ret, frame = video_capture.read()
-    video_capture.release()
+    log_message("Detecting liveness...")
+    blink_count = 0
+    blink_detected = False
+    last_blink_time = time.time()
+    eye_open = True
+    start_time = time.time()
+    
+    while True:
+        ret, frame = video_capture.read()
+        if not ret:
+            continue
 
-    if ret:
-        filename = os.path.join(directory, f"capture_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg")
-        cv2.imwrite(filename, frame)
-        log_message(f"Image captured and saved as {filename}")
-        return filename
-    else:
-        log_message("Error: Failed to capture image.")
-        return None
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        faces = detector(gray)
+
+        if len(faces) == 0:
+            log_message("No face detected. Adjust lighting or position...")
+            continue
+
+        for face in faces:
+            landmarks = predictor(gray, face)
+            left_eye = [(landmarks.part(i).x, landmarks.part(i).y) for i in range(36, 42)]
+            right_eye = [(landmarks.part(i).x, landmarks.part(i).y) for i in range(42, 48)]
+
+            if is_blinking(left_eye) or is_blinking(right_eye):
+                if eye_open:  # Only count a new blink when eyes were previously open
+                    blink_count += 1
+                    last_blink_time = time.time()
+                    eye_open = False  # Mark eyes as closed
+            else:
+                eye_open = True  # Reset when eyes open again
+
+        if time.time() - last_blink_time > 5:
+            log_message("No live face detected (No blink in time). Liveness check failed.")
+            video_capture.release()
+            return None
+
+        if blink_count >= 2:
+            blink_detected = True
+            break
+
+    video_capture.release()
+    filename = os.path.join("captured_faces", f"capture_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg")
+    cv2.imwrite(filename, frame)
+    log_message(f"Image captured and saved as {filename}")
+    return filename
 
 # Process captured image and update Excel
 def process_image():
-    known_faces, known_names = load_known_faces()
+    known_faces, known_roll_numbers = load_known_faces()
     if not known_faces:
         log_message("No known faces found. Please add faces to the 'known_faces' folder.")
         return
@@ -96,58 +172,84 @@ def process_image():
         return
 
     image = face_recognition.load_image_file(captured_image)
-    face_locations = face_recognition.face_locations(image)
-    face_encodings = face_recognition.face_encodings(image, face_locations)
+    face_encodings = face_recognition.face_encodings(image)
 
     if not face_encodings:
         log_message("No faces detected in the captured image.")
         return
 
+    subject = simpledialog.askstring("Input", f"Select subject: {', '.join(subjects)}")
+    if subject not in subjects:
+        log_message("Invalid subject selection.")
+        return
+
+    excel_file = os.path.join("attendance_records", f"{subject}.xlsx")
     df = pd.read_excel(excel_file)
-    if "Date" not in df.columns:
-        df["Date"] = None
     date_today = datetime.now().strftime('%Y-%m-%d')
 
-    for face_encoding in face_encodings:
-        matches = face_recognition.compare_faces(known_faces, face_encoding)
-        face_distances = face_recognition.face_distance(known_faces, face_encoding)
+    # Ensure column exists for today
+    if date_today not in df.columns:
+        df[date_today] = "A"
 
+    for face_encoding in face_encodings:
+        matches = face_recognition.compare_faces(list(known_roll_numbers.values()), face_encoding)
         if True in matches:
             best_match_index = matches.index(True)
-            name = known_names[best_match_index]
-            log_message(f"Recognized: {name}")
+            roll_number = list(known_roll_numbers.keys())[best_match_index]
+            name = roll_number_name_mapping.get(roll_number, "Unknown")
 
-            # Check if entry already exists
-            existing_entry = df[(df["Date"] == date_today) & (df["Name"] == name)]
-            if existing_entry.empty:
-                entry_time = datetime.now().strftime('%H:%M:%S')
-                new_row = {"Date": date_today, "Name": name, "Entry Time": entry_time, "Exit Time": ""}
-                df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
-                log_message(f"Entry time recorded for {name}: {entry_time}")
+            log_message(f"Recognized: {name} (Roll No: {roll_number})")
+
+            # Prevent Duplicate Entry for Today
+            if roll_number in df["Roll Number"].astype(str).values:
+                existing_entry = df.loc[df["Roll Number"].astype(str) == roll_number, date_today].values[0]
+                if existing_entry == "P":
+                    log_message(f"Duplicate entry detected for {name} (Roll No: {roll_number}) on {date_today}.")
+                    return
+                else:
+                    df.loc[df["Roll Number"].astype(str) == roll_number, date_today] = "P"
             else:
-                exit_time = datetime.now().strftime('%H:%M:%S')
-                df.loc[existing_entry.index, "Exit Time"] = exit_time
-                log_message(f"Exit time recorded for {name}: {exit_time}")
+                new_row = {"Roll Number": roll_number, "Name": name, date_today: "P"}
+                df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+
+            log_message(f"Attendance marked for {name} (Roll No: {roll_number}) in {subject}")
         else:
             log_message("Unknown face detected.")
 
     df.to_excel(excel_file, index=False)
-    log_message("Excel file updated.")
+    log_message(f"Excel file updated for {subject}.")
 
-# Add face to known faces
 def add_face():
     filename = capture_image()
     if not filename:
         return
 
-    name = simpledialog.askstring("Input", "Enter the name for the captured face:")
-    if not name:
-        log_message("Operation canceled: No name provided.")
+    roll_number = simpledialog.askstring("Input", "Enter Roll Number:")
+    name = simpledialog.askstring("Input", "Enter Student Name:")
+    if not name or not roll_number:
+        log_message("Operation canceled: Missing Roll Number or Name.")
         return
 
-    new_path = os.path.join("known_faces", f"{name}.jpg")
+    # Ensure uniqueness
+    known_faces, known_roll_numbers = load_known_faces()
+    if roll_number in known_roll_numbers:
+        log_message("Roll number already exists. Cannot add duplicate entries.")
+        return
+
+    # Save the face image
+    new_path = os.path.join("known_faces", f"{name}_{roll_number}.jpg")
     shutil.move(filename, new_path)
     log_message(f"New face added as {new_path}")
+
+    # Add the roll number and name to all attendance records
+    for subject in subjects:
+        file_name = os.path.join("attendance_records", f"{subject}.xlsx")
+        df = pd.read_excel(file_name)
+
+        if str(roll_number) not in df["Roll Number"].astype(str).values:
+            df = pd.concat([df, pd.DataFrame([{"Roll Number": roll_number, "Name": name}])], ignore_index=True)
+            df.to_excel(file_name, index=False)
+            log_message(f"Added {name} (Roll No: {roll_number}) to {subject} attendance file.")
 
 # GUI Setup
 def setup_gui():
