@@ -1,5 +1,3 @@
-# Good till now
-
 import tkinter as tk
 from tkinter import ttk
 import cv2
@@ -12,20 +10,19 @@ import shutil
 import numpy as np
 import time
 import dlib
-from scipy.spatial import distance
-
+from scipy.spatial import distance  
 
 # Ensure required directories exist
 os.makedirs("known_faces", exist_ok=True)
 os.makedirs("captured_faces", exist_ok=True)
 os.makedirs("attendance_records", exist_ok=True)  # Directory for attendance files
 
-# Global variables
 # Global dictionary to store Roll Number to Name mapping
 roll_number_name_mapping = {}
 
+# Global variables
 log_widget = None
-subjects = ["Math", "Science", "History"]  # Subjects for attendance tracking
+subjects = ["Math", "OS", "DSA"]  # Subjects for attendance tracking
 
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
@@ -92,13 +89,11 @@ def manage_captured_faces():
         log_message(f"Deleted old image: {files[0]}")
         files.pop(0)
 
-
 # Detect head movement
 def detect_head_movement(landmarks, initial_nose):
     current_nose = (landmarks.part(30).x, landmarks.part(30).y)
     movement = abs(current_nose[0] - initial_nose[0]) + abs(current_nose[1] - initial_nose[1])
     return movement > 3  # Adjust threshold as needed
-
 
 def is_blinking(eye):
     A = distance.euclidean(eye[1], eye[5])
@@ -113,6 +108,9 @@ def capture_image():
         log_message("Error: Webcam not accessible.")
         return None
 
+    cv2.namedWindow("Live Camera", cv2.WINDOW_NORMAL)
+    cv2.resizeWindow("Live Camera", 400, 300)
+    
     log_message("Detecting liveness...")
     blink_count = 0
     blink_detected = False
@@ -138,29 +136,41 @@ def capture_image():
             right_eye = [(landmarks.part(i).x, landmarks.part(i).y) for i in range(42, 48)]
 
             if is_blinking(left_eye) or is_blinking(right_eye):
-                if eye_open:  # Only count a new blink when eyes were previously open
+                if eye_open:
                     blink_count += 1
                     last_blink_time = time.time()
-                    eye_open = False  # Mark eyes as closed
+                    eye_open = False
             else:
-                eye_open = True  # Reset when eyes open again
+                eye_open = True
 
-        if time.time() - last_blink_time > 5:
+        if time.time() - last_blink_time > 3:
             log_message("No live face detected (No blink in time). Liveness check failed.")
             video_capture.release()
+            cv2.destroyWindow("Live Camera")
             return None
 
         if blink_count >= 2:
             blink_detected = True
             break
 
+        cv2.imshow("Live Camera", frame)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
     video_capture.release()
+    cv2.destroyWindow("Live Camera")
     filename = os.path.join("captured_faces", f"capture_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg")
     cv2.imwrite(filename, frame)
     log_message(f"Image captured and saved as {filename}")
     return filename
 
 # Process captured image and update Excel
+import os
+import pandas as pd
+import face_recognition
+from datetime import datetime
+from tkinter import simpledialog
+
 def process_image():
     known_faces, known_roll_numbers = load_known_faces()
     if not known_faces:
@@ -178,18 +188,7 @@ def process_image():
         log_message("No faces detected in the captured image.")
         return
 
-    subject = simpledialog.askstring("Input", f"Select subject: {', '.join(subjects)}")
-    if subject not in subjects:
-        log_message("Invalid subject selection.")
-        return
-
-    excel_file = os.path.join("attendance_records", f"{subject}.xlsx")
-    df = pd.read_excel(excel_file)
-    date_today = datetime.now().strftime('%Y-%m-%d')
-
-    # Ensure column exists for today
-    if date_today not in df.columns:
-        df[date_today] = "A"
+    recognized_students = {}
 
     for face_encoding in face_encodings:
         matches = face_recognition.compare_faces(list(known_roll_numbers.values()), face_encoding)
@@ -199,22 +198,39 @@ def process_image():
             name = roll_number_name_mapping.get(roll_number, "Unknown")
 
             log_message(f"Recognized: {name} (Roll No: {roll_number})")
-
-            # Prevent Duplicate Entry for Today
-            if roll_number in df["Roll Number"].astype(str).values:
-                existing_entry = df.loc[df["Roll Number"].astype(str) == roll_number, date_today].values[0]
-                if existing_entry == "P":
-                    log_message(f"Duplicate entry detected for {name} (Roll No: {roll_number}) on {date_today}.")
-                    return
-                else:
-                    df.loc[df["Roll Number"].astype(str) == roll_number, date_today] = "P"
-            else:
-                new_row = {"Roll Number": roll_number, "Name": name, date_today: "P"}
-                df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
-
-            log_message(f"Attendance marked for {name} (Roll No: {roll_number}) in {subject}")
+            recognized_students[roll_number] = name
         else:
             log_message("Unknown face detected.")
+
+    if not recognized_students:
+        log_message("No known faces recognized. Attendance not recorded.")
+        return
+
+    subject = simpledialog.askstring("Input", f"Select subject: {', '.join(subjects)}")
+    if subject not in subjects:
+        log_message("Invalid subject selection.")
+        return
+
+    excel_file = os.path.join("attendance_records", f"{subject}.xlsx")
+    df = pd.read_excel(excel_file)
+    date_today = datetime.now().strftime('%Y-%m-%d')
+
+    if date_today not in df.columns:
+        df[date_today] = "A"
+
+    for roll_number, name in recognized_students.items():
+        if roll_number in df["Roll Number"].astype(str).values:
+            existing_entry = df.loc[df["Roll Number"].astype(str) == roll_number, date_today].values[0]
+            if existing_entry == "P":
+                log_message(f"Duplicate entry detected for {name} (Roll No: {roll_number}) on {date_today}.")
+                continue
+            else:
+                df.loc[df["Roll Number"].astype(str) == roll_number, date_today] = "P"
+        else:
+            new_row = {"Roll Number": roll_number, "Name": name, date_today: "P"}
+            df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+
+        log_message(f"Attendance marked for {name} (Roll No: {roll_number}) in {subject}")
 
     df.to_excel(excel_file, index=False)
     log_message(f"Excel file updated for {subject}.")
@@ -251,21 +267,38 @@ def add_face():
             df.to_excel(file_name, index=False)
             log_message(f"Added {name} (Roll No: {roll_number}) to {subject} attendance file.")
 
-# GUI Setup
+
 def setup_gui():
     global log_widget
 
     root = tk.Tk()
-    root.title("Face Recognition System")
+    root.title("FaceSecure")
+    root.geometry("700x500")
+    root.configure(bg="#2C3E50")
 
-    main_frame = ttk.Frame(root, padding="10")
-    main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+    style = ttk.Style()
+    style.configure("TButton", font=("Arial", 12), padding=10)
+    style.configure("T`Label", font=("Arial", 14), background="#2C3E50", foreground="white")
 
-    ttk.Button(main_frame, text="Capture & Process", command=process_image).grid(row=0, column=0, padx=5, pady=5)
-    ttk.Button(main_frame, text="Add Face", command=add_face).grid(row=0, column=1, padx=5, pady=5)
+    header_frame = tk.Frame(root, bg="#1A252F", pady=10)
+    header_frame.pack(fill=tk.X)
+    title_label = tk.Label(header_frame, text="FaceSecure", font=("Arial", 18, "bold"), bg="#1A252F", fg="white")
+    title_label.pack()
 
-    log_widget = tk.Text(main_frame, width=80, height=20, wrap="word")
-    log_widget.grid(row=1, column=0, columnspan=2, pady=10)
+    main_frame = tk.Frame(root, bg="#2C3E50", padx=20, pady=20)
+    main_frame.pack(expand=True)
+
+    button_frame = tk.Frame(main_frame, bg="#2C3E50")
+    button_frame.pack(pady=10)
+    
+    ttk.Button(button_frame, text="Mark Attendance", command=process_image).grid(row=0, column=0, padx=15, pady=10)
+    ttk.Button(button_frame, text="Add Face", command=add_face).grid(row=0, column=1, padx=15, pady=10)
+    
+    log_label = ttk.Label(main_frame, text="Logs:")
+    log_label.pack(anchor="w", pady=(20, 5))
+
+    log_widget = tk.Text(main_frame, width=80, height=15, wrap="word", bg="#ECF0F1", fg="#2C3E50", font=("Arial", 10))
+    log_widget.pack()
 
     root.mainloop()
 

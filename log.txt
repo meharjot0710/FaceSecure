@@ -1,0 +1,57 @@
+[2025-01-30 22:04:06] Detecting liveness...
+[2025-01-30 22:04:08] Image captured and saved as captured_faces\capture_20250130_220408.jpg
+[2025-01-30 22:04:17] New face added as known_faces\Mehar_3876.jpg
+[2025-01-30 22:04:17] Added Mehar (Roll No: 3876) to Math attendance file.
+[2025-01-30 22:04:17] Added Mehar (Roll No: 3876) to OS attendance file.
+[2025-01-30 22:04:17] Added Mehar (Roll No: 3876) to DSA attendance file.
+[2025-01-30 22:04:25] Detecting liveness...
+[2025-01-30 22:04:27] Image captured and saved as captured_faces\capture_20250130_220427.jpg
+[2025-01-30 22:04:28] Recognized: Mehar (Roll No: 3876)
+[2025-01-30 22:04:35] Attendance marked for Mehar (Roll No: 3876) in OS
+[2025-01-30 22:04:35] Excel file updated for OS.
+[2025-01-30 22:05:20] Detecting liveness...
+[2025-01-30 22:05:22] Image captured and saved as captured_faces\capture_20250130_220522.jpg
+[2025-01-30 22:05:32] Operation canceled: Missing Roll Number or Name.
+[2025-01-31 22:41:05] Detecting liveness...
+[2025-01-31 22:41:07] Image captured and saved as captured_faces\capture_20250131_224107.jpg
+[2025-01-31 22:41:08] Recognized: Mehar (Roll No: 3876)
+[2025-01-31 22:41:11] Attendance marked for Mehar (Roll No: 3876) in OS
+[2025-01-31 22:41:11] Excel file updated for OS.
+[2025-01-31 22:42:56] Detecting liveness...
+[2025-01-31 22:42:59] Image captured and saved as captured_faces\capture_20250131_224259.jpg
+[2025-01-31 22:43:19] New face added as known_faces\Meharjot_3876.jpg
+[2025-01-31 22:43:19] Added Meharjot (Roll No: 3876) to Math attendance file.
+[2025-01-31 22:43:19] Added Meharjot (Roll No: 3876) to OS attendance file.
+[2025-01-31 22:43:19] Added Meharjot (Roll No: 3876) to DSA attendance file.
+[2025-01-31 22:45:20] Detecting liveness...
+[2025-01-31 22:45:23] Image captured and saved as captured_faces\capture_20250131_224523.jpg
+[2025-01-31 22:45:45] New face added as known_faces\Meharjot_3876.jpg
+[2025-01-31 22:45:46] Added Meharjot (Roll No: 3876) to Math attendance file.
+[2025-01-31 22:45:46] Added Meharjot (Roll No: 3876) to OS attendance file.
+[2025-01-31 22:45:46] Added Meharjot (Roll No: 3876) to DSA attendance file.
+[2025-01-31 22:46:27] Detecting liveness...
+[2025-01-31 22:46:31] Image captured and saved as captured_faces\capture_20250131_224631.jpg
+[2025-01-31 22:46:32] Recognized: Meharjot (Roll No: 3876)
+[2025-01-31 22:46:41] Attendance marked for Meharjot (Roll No: 3876) in OS
+[2025-01-31 22:46:41] Excel file updated for OS.
+[2025-01-31 22:47:42] Detecting liveness...
+[2025-01-31 22:47:45] No live face detected (No blink in time). Liveness check failed.
+[2025-01-31 22:48:04] Detecting liveness...
+[2025-01-31 22:48:06] No face detected. Adjust lighting or position...
+[2025-01-31 22:48:07] No face detected. Adjust lighting or position...
+[2025-01-31 22:48:08] No face detected. Adjust lighting or position...
+[2025-01-31 22:48:09] Image captured and saved as captured_faces\capture_20250131_224809.jpg
+[2025-01-31 22:48:10] Recognized: Meharjot (Roll No: 3876)
+[2025-01-31 22:49:03] Invalid subject selection.
+[2025-01-31 22:49:18] Detecting liveness...
+[2025-01-31 22:49:23] No live face detected (No blink in time). Liveness check failed.
+[2025-01-31 22:49:34] Detecting liveness...
+[2025-01-31 22:49:37] Image captured and saved as captured_faces\capture_20250131_224937.jpg
+[2025-01-31 22:49:38] Recognized: Meharjot (Roll No: 3876)
+[2025-01-31 22:49:48] Duplicate entry detected for Meharjot (Roll No: 3876) on 2025-01-31.
+[2025-01-31 22:49:48] Excel file updated for OS.
+[2025-01-31 22:51:25] Detecting liveness...
+[2025-01-31 22:51:28] No live face detected (No blink in time). Liveness check failed.
+[2025-01-31 22:51:46] Detecting liveness...
+[2025-01-31 22:51:48] Image captured and saved as captured_faces\capture_20250131_225148.jpg
+[2025-01-31 22:51:59] Roll number already exists. Cannot add duplicate entries.
