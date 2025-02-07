@@ -10,7 +10,7 @@ import shutil
 import numpy as np
 import time
 import dlib
-from scipy.spatial import distance  
+from scipy.spatial import distance
 
 # Ensure required directories exist
 os.makedirs("known_faces", exist_ok=True)
@@ -268,6 +268,131 @@ def add_face():
             log_message(f"Added {name} (Roll No: {roll_number}) to {subject} attendance file.")
 
 
+def pp(return_recognized=False):
+    known_faces, known_roll_numbers = load_known_faces()
+    if not known_faces:
+        log_message("No known faces found. Please add faces to the 'known_faces' folder.")
+        return (None, None) if return_recognized else None
+
+    captured_image = capture_image()
+    if not captured_image:
+        return (None, None) if return_recognized else None
+
+    image = face_recognition.load_image_file(captured_image)
+    face_encodings = face_recognition.face_encodings(image)
+
+    if not face_encodings:
+        log_message("No faces detected in the captured image.")
+        return (None, None) if return_recognized else None
+
+    recognized_students = {}
+
+    for face_encoding in face_encodings:
+        matches = face_recognition.compare_faces(list(known_roll_numbers.values()), face_encoding)
+        if True in matches:
+            best_match_index = matches.index(True)
+            roll_number = list(known_roll_numbers.keys())[best_match_index]
+            name = roll_number_name_mapping.get(roll_number, "Unknown")
+
+            log_message(f"Recognized: {name} (Roll No: {roll_number})")
+            recognized_students[roll_number] = name
+        else:
+            log_message("Unknown face detected.")
+
+    if return_recognized:
+        if recognized_students:
+            first_student = list(recognized_students.items())[0]  # Return first recognized student
+            return first_student[1], first_student[0]  # Return (name, roll number)
+        return (None, None)
+
+    if not recognized_students:
+        log_message("No known faces recognized. Attendance not recorded.")
+        return None
+
+def predict_attendance():
+    recognized_name, recognized_roll = pp(return_recognized=True)
+    
+    if recognized_name is None or recognized_roll is None:
+        messagebox.showerror("Error", "Face not recognized. Please try again.")
+        return
+    
+    messagebox.showinfo("Face Recognized", f"Welcome, {recognized_name} (Roll No: {recognized_roll})")
+
+    # Step 2: Ask for subject selection
+    subject = simpledialog.askstring("Input", f"Select subject: {', '.join(subjects)}")
+    if subject not in subjects:
+        messagebox.showerror("Error", "Invalid subject selection.")
+        return
+
+    excel_file = os.path.join("attendance_records", f"{subject}.xlsx")
+    
+    if not os.path.exists(excel_file):
+        messagebox.showerror("Error", f"No attendance record found for {subject}.")
+        return
+    
+    # Load the Excel file
+    df = pd.read_excel(excel_file)
+
+    print("Loaded DataFrame:\n", df.head())  # Print first few rows
+    print("Columns in Excel File:", df.columns)  # Print all column names
+
+    if "Roll Number" not in df.columns:
+        messagebox.showerror("Error", "Invalid Excel format. Missing 'Roll Number' column.")
+        return
+
+    # Strip spaces from column names (in case of formatting issues)
+    df.columns = df.columns.str.strip()
+
+    # Extract attendance columns
+    date_columns = [col for col in df.columns if col not in ["Roll Number", "Name"]]
+    print("Extracted Date Columns:", date_columns)
+
+    total_classes = len(date_columns)
+
+    if total_classes == 0:
+        messagebox.showinfo("Info", "No classes conducted yet for prediction.")
+        return
+
+    # Step 3: Find the student's attendance record
+    
+    student_row = df[df["Roll Number"] == int(recognized_roll)]
+
+    if student_row.empty:
+        messagebox.showerror("Error", "No attendance record found for this student.")
+        return
+
+    student_row = student_row.iloc[0]
+
+    # Debugging: Print student's attendance data
+    print("Student Attendance Data:", student_row[date_columns].to_dict())
+
+    # Debugging: Check unique attendance values
+    print("Unique Attendance Values in Excel:", df[date_columns].stack().unique())
+
+    # Fix attendance counting issue
+    total_present = sum(str(student_row[date]).strip().upper() in ["P", "1"] for date in date_columns)
+    print("Total Present Count:", total_present)
+
+    # Projected future attendance
+    remaining_classes = 50  # Assume 50 more classes
+    projected_present = total_present + remaining_classes
+    projected_percentage = (projected_present / (total_classes + remaining_classes)) * 100
+
+    # Fix max missed classes calculation
+    min_attendance_required = 75  # Minimum percentage required
+    remaining_needed = (min_attendance_required / 100) * (total_classes + remaining_classes)
+    max_missed = 50 - max(0, int(remaining_needed - total_present))
+
+    prediction_result = (
+        f"{recognized_name} (Roll No: {recognized_roll}):\n"
+        f"Current Attendance: {total_present}/{total_classes} ({(total_present / total_classes) * 100:.2f}%)\n"
+        f"Projected Attendance: {projected_present}/{total_classes + remaining_classes} ({projected_percentage:.2f}%)\n"
+        f"You can miss {max_missed} more classes."
+    )
+
+    messagebox.showinfo("Attendance Prediction", prediction_result)
+
+
 def setup_gui():
     global log_widget
 
@@ -293,6 +418,7 @@ def setup_gui():
     
     ttk.Button(button_frame, text="Mark Attendance", command=process_image).grid(row=0, column=0, padx=15, pady=10)
     ttk.Button(button_frame, text="Add Face", command=add_face).grid(row=0, column=1, padx=15, pady=10)
+    ttk.Button(button_frame, text="Attendance Prediction", command=predict_attendance).grid(row=1, column=0, columnspan=2, padx=15, pady=10)
     
     log_label = ttk.Label(main_frame, text="Logs:")
     log_label.pack(anchor="w", pady=(20, 5))
