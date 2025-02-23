@@ -342,53 +342,6 @@ def show_warnings(roll_number):
     else:
         messagebox.showinfo("No Warnings", "You have no warnings.")
 
-def select_dates():
-    def submit():
-        nonlocal start_date, end_date
-        start_date = start_date_entry.get_date().strftime("%Y-%m-%d")
-        end_date = end_date_entry.get_date().strftime("%Y-%m-%d")
-
-        if start_date > end_date:
-            messagebox.showerror("Error", "End date must be after start date!")
-            return
-        root.quit()
-    root = tk.Tk()
-    root.title("Select Leave Dates")
-    tk.Label(root, text="Start Date:").grid(row=0, column=0, padx=10, pady=5)
-    start_date_entry = DateEntry(root, width=12, background='darkblue', foreground='white', borderwidth=2)
-    start_date_entry.grid(row=0, column=1, padx=10, pady=5)
-    tk.Label(root, text="End Date:").grid(row=1, column=0, padx=10, pady=5)
-    end_date_entry = DateEntry(root, width=12, background='darkblue', foreground='white', borderwidth=2)
-    end_date_entry.grid(row=1, column=1, padx=10, pady=5)
-    submit_button = ttk.Button(root, text="Submit", command=submit)
-    submit_button.grid(row=2, column=0, columnspan=2, pady=10)
-    start_date, end_date = None, None
-    root.mainloop()
-    return start_date, end_date
-
-def apply_leave():
-    name, roll_number = pp()
-    start_date, end_date = select_dates()
-    if not start_date or not end_date:
-        messagebox.showerror("Error", "No dates selected!")
-        return
-    leave_data = {
-        "Roll Number": roll_number,
-        "Name": name,
-        "Start Date": start_date,
-        "End Date": end_date,
-        "Status": "Pending"
-    }
-    leave_file = "leave_requests.xlsx"
-    if os.path.exists(leave_file):
-        df = pd.read_excel(leave_file)
-    else:
-        df = pd.DataFrame(columns=["Roll Number", "Name", "Start Date", "End Date", "Status"])
-    df = pd.concat([df, pd.DataFrame([leave_data])], ignore_index=True)
-    df.to_excel(leave_file, index=False)
-    log_message(f"Leave request submitted for {name} (Roll No: {roll_number}) from {start_date} to {end_date}.")
-    messagebox.showinfo("Success", "Leave request submitted successfully!")
-
 def setup_gui():
     global log_widget
     root = tk.Tk()
@@ -410,7 +363,6 @@ def setup_gui():
     ttk.Button(button_frame, text="Add Face", command=add_face).grid(row=0, column=1, padx=15, pady=10)
     ttk.Button(button_frame, text="Check Warnings", command=check_warnings).grid(row=1, column=0, padx=15, pady=10)
     ttk.Button(button_frame, text="Attendance Prediction", command=predict_attendance).grid(row=1, column=1, padx=15, pady=10)
-    ttk.Button(button_frame, text="Apply Leave", command=apply_leave).grid(row=2, column=1, padx=15, pady=10)
     log_label = ttk.Label(main_frame, text="Logs:")
     log_label.pack(anchor="w", pady=(20, 5))
     log_widget = tk.Text(main_frame, width=80, height=15, wrap="word", bg="#ECF0F1", fg="#2C3E50", font=("Arial", 10))
