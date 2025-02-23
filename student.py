@@ -11,6 +11,7 @@ import numpy as np
 import time
 import dlib
 from scipy.spatial import distance
+from tkcalendar import DateEntry
 
 os.makedirs("known_faces", exist_ok=True)
 os.makedirs("captured_faces", exist_ok=True)
@@ -122,14 +123,14 @@ def capture_image():
         ret, frame = video_capture.read()
         if not ret:
             continue
-        faces = detect_faces(frame)  # ✅ Pass original BGR frame
+        faces = detect_faces(frame)
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         if len(faces) == 0:
             log_message("No face detected. Adjust lighting or position...")
             continue
         for face in faces:
-            dlib_rect = dlib.rectangle(face[0], face[1], face[2], face[3])  # Convert tuple to dlib.rectangle
-            landmarks = predictor(gray, dlib_rect)  # Pass converted rectangle
+            dlib_rect = dlib.rectangle(face[0], face[1], face[2], face[3])
+            landmarks = predictor(gray, dlib_rect)
             left_eye = [(landmarks.part(i).x, landmarks.part(i).y) for i in range(36, 42)]
             right_eye = [(landmarks.part(i).x, landmarks.part(i).y) for i in range(42, 48)]
             if is_blinking(left_eye) or is_blinking(right_eye):
@@ -160,7 +161,7 @@ def capture_image():
 def match_face(known_encodings, face_encoding, known_roll_numbers):
     distances = face_recognition.face_distance(known_encodings, face_encoding)
     best_match_index = np.argmin(distances)
-    if distances[best_match_index] < 0.5:  # Adjust threshold if needed
+    if distances[best_match_index] < 0.5:
         roll_number = list(known_roll_numbers.keys())[best_match_index]
         return roll_number
     return None
@@ -239,42 +240,35 @@ def add_face():
             df.to_excel(file_name, index=False)
             log_message(f"Added {name} (Roll No: {roll_number}) to {subject} attendance file.")
 
-def pp(return_recognized=False):
+def pp():
     known_faces, known_roll_numbers = load_known_faces()
     if not known_faces:
         log_message("No known faces found. Please add faces to the 'known_faces' folder.")
-        return (None, None) if return_recognized else None
+        return
     captured_image = capture_image()
     if not captured_image:
-        return (None, None) if return_recognized else None
+        return
     image = face_recognition.load_image_file(captured_image)
     get_face_encodings = face_recognition.face_encodings(image)
     if not get_face_encodings:
         log_message("No faces detected in the captured image.")
-        return (None, None) if return_recognized else None
+        return
     recognized_students = {}
     for face_encoding in get_face_encodings:
-        matches = face_recognition.compare_faces(list(known_roll_numbers.values()), face_encoding)
-        if matches is not None:
-            best_match_index = matches.index(True)
-            roll_number = list(known_roll_numbers.keys())[best_match_index]
+        roll_number = match_face(list(known_roll_numbers.values()), face_encoding, known_roll_numbers)
+        if roll_number is not None:
             name = roll_number_name_mapping.get(roll_number, "Unknown")
-
             log_message(f"Recognized: {name} (Roll No: {roll_number})")
             recognized_students[roll_number] = name
+            return name,roll_number
         else:
             log_message("Unknown face detected.")
-    if return_recognized:
-        if recognized_students:
-            first_student = list(recognized_students.items())[0]
-            return first_student[1], first_student[0]
-        return (None, None)
     if not recognized_students:
         log_message("No known faces recognized. Attendance not recorded.")
-        return None
+        return
     
 def predict_attendance():
-    recognized_name, recognized_roll = pp(return_recognized=True)
+    recognized_name, recognized_roll = pp()
     if recognized_name is None or recognized_roll is None:
         messagebox.showerror("Error", "Face not recognized. Please try again.")
         return
@@ -309,12 +303,12 @@ def predict_attendance():
     print("Unique Attendance Values in Excel:", df[date_columns].stack().unique())
     total_present = sum(str(student_row[date]).strip().upper() in ["P", "1"] for date in date_columns)
     print("Total Present Count:", total_present)
-    remaining_classes = 50
+    remaining_classes = 50 - total_classes
     projected_present = total_present + remaining_classes
     projected_percentage = (projected_present / (total_classes + remaining_classes)) * 100
     min_attendance_required = 75
     remaining_needed = (min_attendance_required / 100) * (total_classes + remaining_classes)
-    max_missed = 50 - max(0, int(remaining_needed - total_present))
+    max_missed = 50 - max(0, int(remaining_needed))
     prediction_result = (
         f"{recognized_name} (Roll No: {recognized_roll}):\n"
         f"Current Attendance: {total_present}/{total_classes} ({(total_present / total_classes) * 100:.2f}%)\n"
@@ -322,6 +316,78 @@ def predict_attendance():
         f"You can miss {max_missed} more classes."
     )
     messagebox.showinfo("Attendance Prediction", prediction_result)
+
+def check_warnings():
+    n,roll_number = pp()
+    show_warnings(roll_number)
+
+def load_warnings(roll_number):
+    try:
+        df = pd.read_excel("warnings.xlsx")
+        df["Roll Number"] = df["Roll Number"].astype(str)
+        student_warnings = df[df['Roll Number'] == roll_number]
+        print(student_warnings.head())
+        if not student_warnings.empty:
+            return student_warnings[['Subject', 'Message']].values.tolist()
+        else:
+            return []
+    except FileNotFoundError:
+        return []
+
+def show_warnings(roll_number):
+    warnings = load_warnings(roll_number)
+    if warnings:
+        warning_text = "\n".join([f"{w[0]}: {w[1]}" for w in warnings])
+        messagebox.showwarning("Attendance Warning", warning_text)
+    else:
+        messagebox.showinfo("No Warnings", "You have no warnings.")
+
+def select_dates():
+    def submit():
+        nonlocal start_date, end_date
+        start_date = start_date_entry.get_date().strftime("%Y-%m-%d")
+        end_date = end_date_entry.get_date().strftime("%Y-%m-%d")
+
+        if start_date > end_date:
+            messagebox.showerror("Error", "End date must be after start date!")
+            return
+        root.quit()
+    root = tk.Tk()
+    root.title("Select Leave Dates")
+    tk.Label(root, text="Start Date:").grid(row=0, column=0, padx=10, pady=5)
+    start_date_entry = DateEntry(root, width=12, background='darkblue', foreground='white', borderwidth=2)
+    start_date_entry.grid(row=0, column=1, padx=10, pady=5)
+    tk.Label(root, text="End Date:").grid(row=1, column=0, padx=10, pady=5)
+    end_date_entry = DateEntry(root, width=12, background='darkblue', foreground='white', borderwidth=2)
+    end_date_entry.grid(row=1, column=1, padx=10, pady=5)
+    submit_button = ttk.Button(root, text="Submit", command=submit)
+    submit_button.grid(row=2, column=0, columnspan=2, pady=10)
+    start_date, end_date = None, None
+    root.mainloop()
+    return start_date, end_date
+
+def apply_leave():
+    name, roll_number = pp()
+    start_date, end_date = select_dates()
+    if not start_date or not end_date:
+        messagebox.showerror("Error", "No dates selected!")
+        return
+    leave_data = {
+        "Roll Number": roll_number,
+        "Name": name,
+        "Start Date": start_date,
+        "End Date": end_date,
+        "Status": "Pending"
+    }
+    leave_file = "leave_requests.xlsx"
+    if os.path.exists(leave_file):
+        df = pd.read_excel(leave_file)
+    else:
+        df = pd.DataFrame(columns=["Roll Number", "Name", "Start Date", "End Date", "Status"])
+    df = pd.concat([df, pd.DataFrame([leave_data])], ignore_index=True)
+    df.to_excel(leave_file, index=False)
+    log_message(f"Leave request submitted for {name} (Roll No: {roll_number}) from {start_date} to {end_date}.")
+    messagebox.showinfo("Success", "Leave request submitted successfully!")
 
 def setup_gui():
     global log_widget
@@ -342,7 +408,9 @@ def setup_gui():
     button_frame.pack(pady=10)
     ttk.Button(button_frame, text="Mark Attendance", command=process_image).grid(row=0, column=0, padx=15, pady=10)
     ttk.Button(button_frame, text="Add Face", command=add_face).grid(row=0, column=1, padx=15, pady=10)
-    ttk.Button(button_frame, text="Attendance Prediction", command=predict_attendance).grid(row=1, column=0, columnspan=2, padx=15, pady=10)
+    ttk.Button(button_frame, text="Check Warnings", command=check_warnings).grid(row=1, column=0, padx=15, pady=10)
+    ttk.Button(button_frame, text="Attendance Prediction", command=predict_attendance).grid(row=1, column=1, padx=15, pady=10)
+    ttk.Button(button_frame, text="Apply Leave", command=apply_leave).grid(row=2, column=1, padx=15, pady=10)
     log_label = ttk.Label(main_frame, text="Logs:")
     log_label.pack(anchor="w", pady=(20, 5))
     log_widget = tk.Text(main_frame, width=80, height=15, wrap="word", bg="#ECF0F1", fg="#2C3E50", font=("Arial", 10))
