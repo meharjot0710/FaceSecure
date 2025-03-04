@@ -266,7 +266,16 @@ def pp():
     if not recognized_students:
         log_message("No known faces recognized. Attendance not recorded.")
         return
+  
+file_path='leave_requests.xlsx'
     
+def check_approval_status(name, roll_number):
+    df = pd.read_excel(file_path)
+    matching_entry = df[(df['Name'] == name) & (df['Roll Number'] == roll_number)]
+    if not matching_entry.empty and matching_entry.iloc[0]['Status'] == 'Approved':
+        return True
+    return False
+
 def predict_attendance():
     recognized_name, recognized_roll = pp()
     if recognized_name is None or recognized_roll is None:
@@ -307,8 +316,12 @@ def predict_attendance():
     projected_present = total_present + remaining_classes
     projected_percentage = (projected_present / (total_classes + remaining_classes)) * 100
     min_attendance_required = 75
-    remaining_needed = (min_attendance_required / 100) * (total_classes + remaining_classes)
-    max_missed = 50 - max(0, int(remaining_needed))
+    t=check_approval_status(recognized_name,recognized_roll)
+    if t:
+        min_attendance_required=65
+    max_holiday = ((100 - min_attendance_required) / 100) * (total_classes + remaining_classes)
+    cur_holiday = total_classes - total_present
+    max_missed = max(0,max_holiday-cur_holiday)
     prediction_result = (
         f"{recognized_name} (Roll No: {recognized_roll}):\n"
         f"Current Attendance: {total_present}/{total_classes} ({(total_present / total_classes) * 100:.2f}%)\n"
