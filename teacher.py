@@ -30,7 +30,7 @@ def send_warnings():
     if os.path.exists(file_path):
         df = pd.read_excel(file_path)
         total_classes = len(df.columns) - 2
-        df['Attendance %'] = (df.iloc[:, 2:].apply(lambda row: (row == 'P').sum(), axis=1) / total_classes) * 10
+        df['Attendance %'] = (df.iloc[:, 2:].apply(lambda row: (row == 'P').sum(), axis=1) / total_classes) * 100
         warnings = df[df['Attendance %'] < 75][['Roll Number', 'Name']].copy()
         warnings["Subject"] = selected_subject
         warnings["Message"] = "Your attendance is below 75%. Please improve it."
