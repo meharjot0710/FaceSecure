@@ -360,7 +360,6 @@ def select_dates():
         nonlocal start_date, end_date
         start_date = start_date_entry.get_date().strftime("%Y-%m-%d")
         end_date = end_date_entry.get_date().strftime("%Y-%m-%d")
-
         if start_date > end_date:
             messagebox.showerror("Error", "End date must be after start date!")
             return
@@ -405,7 +404,7 @@ def apply_leave():
 def setup_gui():
     global log_widget
     root = tk.Tk()
-    root.title("Attendance")
+    root.title("FaceSecure")
     root.geometry("700x500")
     root.configure(bg="#2C3E50")
     style = ttk.Style()
