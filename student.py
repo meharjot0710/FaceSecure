@@ -320,6 +320,7 @@ def predict_attendance():
     if t:
         min_attendance_required=65
     max_holiday = ((100 - min_attendance_required) / 100) * (total_classes + remaining_classes)
+    max_holiday=int(max_holiday)
     cur_holiday = total_classes - total_present
     max_missed = max(0,max_holiday-cur_holiday)
     prediction_result = (
@@ -384,22 +385,52 @@ def apply_leave():
     if not start_date or not end_date:
         messagebox.showerror("Error", "No dates selected!")
         return
+    reason = simpledialog.askstring("Leave Reason", "Enter the reason for leave:")
+    if not reason:
+        messagebox.showerror("Error", "Leave reason cannot be empty!")
+        return
     leave_data = {
         "Roll Number": roll_number,
         "Name": name,
         "Start Date": start_date,
         "End Date": end_date,
+        "Reason": reason,
         "Status": "Pending"
     }
     leave_file = "leave_requests.xlsx"
     if os.path.exists(leave_file):
         df = pd.read_excel(leave_file)
     else:
-        df = pd.DataFrame(columns=["Roll Number", "Name", "Start Date", "End Date", "Status"])
+        df = pd.DataFrame(columns=["Roll Number", "Name", "Start Date", "End Date", "Reason", "Status"])
     df = pd.concat([df, pd.DataFrame([leave_data])], ignore_index=True)
     df.to_excel(leave_file, index=False)
-    log_message(f"Leave request submitted for {name} (Roll No: {roll_number}) from {start_date} to {end_date}.")
+    log_message(f"Leave request submitted for {name} (Roll No: {roll_number}) from {start_date} to {end_date}. Reason: {reason}.")
     messagebox.showinfo("Success", "Leave request submitted successfully!")
+
+def check_leave_status():
+    name, roll_number = pp()
+    leave_file = "leave_requests.xlsx"
+    if not os.path.exists(leave_file):
+        messagebox.showinfo("Leave Status", "No leave records found.")
+        return
+    df = pd.read_excel(leave_file, dtype=str)
+    df["Roll Number"] = df["Roll Number"].astype(str).str.strip()
+    df["Name"] = df["Name"].astype(str).str.strip()
+    roll_number = str(roll_number).strip()
+    name = str(name).strip()
+    matched_records = df[(df["Roll Number"] == roll_number) & (df["Name"].str.lower() == name.lower())]
+    if matched_records.empty:
+        messagebox.showinfo("Leave Status", "No leave request found for your details.")
+        return
+    status_message = f"Leave Status for {name} (Roll No: {roll_number}):\n\n"
+    for _, row in matched_records.iterrows():
+        status_message += (
+            f"From: {row['Start Date']} To: {row['End Date']}\n"
+            f"Reason: {row['Reason']}\n"
+            f"Status: {row['Status']}\n"
+            f"{'-'*30}\n"
+        )
+    messagebox.showinfo("Leave Status", status_message)
 
 def setup_gui():
     global log_widget
@@ -423,6 +454,7 @@ def setup_gui():
     ttk.Button(button_frame, text="Check Warnings", command=check_warnings).grid(row=1, column=0, padx=15, pady=10)
     ttk.Button(button_frame, text="Attendance Prediction", command=predict_attendance).grid(row=1, column=1, padx=15, pady=10)
     ttk.Button(button_frame, text="Apply Leave", command=apply_leave).grid(row=2, column=1, padx=15, pady=10)
+    ttk.Button(button_frame, text="Check Status", command=check_leave_status).grid(row=2, column=0, padx=15, pady=10)
     log_label = ttk.Label(main_frame, text="Logs:")
     log_label.pack(anchor="w", pady=(20, 5))
     log_widget = tk.Text(main_frame, width=80, height=15, wrap="word", bg="#ECF0F1", fg="#2C3E50", font=("Arial", 10))
