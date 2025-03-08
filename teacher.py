@@ -56,7 +56,6 @@ def update_attendance_criteria(roll_number):
         file_name = os.path.join("attendance_records", f"{subject}.xlsx")
         df = pd.read_excel(file_name)
         student_row = df[df["Roll Number"] == str(roll_number)]
-        
         if not student_row.empty:
             attendance_percentage = calculate_attendance_percentage(student_row)
             if attendance_percentage < 75:
@@ -82,21 +81,37 @@ def review_leave_requests():
     if pending_requests.empty:
         messagebox.showinfo("No Pending Requests", "No pending leave requests.")
         return
-    leave_request = pending_requests.iloc[0]
-    roll_number = leave_request["Roll Number"]
-    name = leave_request["Name"]
-    start_date = leave_request["Start Date"]
-    end_date = leave_request["End Date"]
-    result = messagebox.askquestion("Approve Leave", f"Do you want to approve the leave for {name} (Roll No: {roll_number}) from {start_date} to {end_date}?")
-    if result == 'yes':
-        df.loc[df["Roll Number"] == roll_number, "Status"] = "Accepted"
+    review_window = tk.Toplevel()
+    review_window.title("Review Leave Requests")
+    review_window.geometry("800x400")
+    columns = ("Roll Number", "Name", "Start Date", "End Date", "Reason", "Status")
+    tree = ttk.Treeview(review_window, columns=columns, show="headings")
+    for col in columns:
+        tree.heading(col, text=col)
+        tree.column(col, anchor="center", width=120)
+    for index, row in pending_requests.iterrows():
+        tree.insert("", "end", values=(row["Roll Number"], row["Name"], row["Start Date"], row["End Date"], row["Reason"], row["Status"]))
+    tree.pack(pady=10, padx=10, fill="both", expand=True)
+    def update_leave_status(status):
+        selected_item = tree.selection()
+        if not selected_item:
+            messagebox.showerror("Error", "Please select a leave request.")
+            return
+        item = tree.item(selected_item)
+        roll_number = item["values"][0]
+        df.loc[df["Roll Number"] == roll_number, "Status"] = status
         df.to_excel(leave_file, index=False)
-        update_attendance_criteria(roll_number)
-        messagebox.showinfo("Leave Accepted", f"Leave for {name} (Roll No: {roll_number}) has been accepted.")
-    else:
-        df.loc[df["Roll Number"] == roll_number, "Status"] = "Rejected"
-        df.to_excel(leave_file, index=False)
-        messagebox.showinfo("Leave Rejected", f"Leave for {name} (Roll No: {roll_number}) has been rejected.")
+        if status == "Accepted":
+            update_attendance_criteria(roll_number)
+        tree.delete(selected_item)
+        messagebox.showinfo("Success", f"Leave for Roll No {roll_number} has been {status.lower()}.")
+    btn_frame = tk.Frame(review_window)
+    btn_frame.pack(pady=10)
+    approve_btn = tk.Button(btn_frame, text="Approve", bg="green", fg="white", command=lambda: update_leave_status("Accepted"))
+    approve_btn.pack(side="left", padx=10)
+    reject_btn = tk.Button(btn_frame, text="Reject", bg="red", fg="white", command=lambda: update_leave_status("Rejected"))
+    reject_btn.pack(side="right", padx=10)
+    review_window.mainloop()
 
 root = tk.Tk()
 root.title("FaceSecure")
@@ -128,7 +143,7 @@ root.mainloop()
 # def setup_gui():
 #     global log_widget
 #     root = tk.Tk()
-#     root.title("FaceSecure")
+#     root.title("Attendance")
 #     root.geometry("700x500")
 #     root.configure(bg="#2C3E50")
 #     style = ttk.Style()
