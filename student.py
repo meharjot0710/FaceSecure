@@ -11,6 +11,7 @@ import numpy as np
 import time
 import dlib
 from scipy.spatial import distance
+from PIL import Image, ImageTk
 from tkcalendar import DateEntry
 
 os.makedirs("known_faces", exist_ok=True)
@@ -350,6 +351,7 @@ def load_warnings(roll_number):
 
 def show_warnings(roll_number):
     warnings = load_warnings(roll_number)
+    print(warnings)
     if warnings:
         warning_text = "\n".join([f"{w[0]}: {w[1]}" for w in warnings])
         messagebox.showwarning("Attendance Warning", warning_text)
@@ -380,8 +382,29 @@ def select_dates():
     return start_date, end_date
 
 def apply_leave():
-    name, roll_number = pp()
-    start_date, end_date = select_dates()
+    name, roll_number = pp() 
+    leave_file = "leave_requests.xlsx"
+    if os.path.exists(leave_file):
+        df = pd.read_excel(leave_file)
+    else:
+        df = pd.DataFrame(columns=["Roll Number", "Name", "Start Date", "End Date", "Reason", "Status"])
+    existing_leave = df[(df["Roll Number"]) == int(roll_number)]
+    print(existing_leave)
+    if not existing_leave.empty:
+        latest_status = existing_leave.iloc[-1]["Status"]
+        if latest_status in ["Pending"]:
+            messagebox.showerror("Error", "You already have a leave request that is Pending!")
+            return
+        if latest_status in ["Approved"]:
+            messagebox.showerror("Error", "You already have a leave request that is Approved!")
+            return
+        elif latest_status == "Rejected":
+            df = df[df["Roll Number"] != roll_number]
+    start_date, end_date = None, None
+    def get_dates():
+        nonlocal start_date, end_date
+        start_date, end_date = select_dates()
+    get_dates() 
     if not start_date or not end_date:
         messagebox.showerror("Error", "No dates selected!")
         return
@@ -397,11 +420,6 @@ def apply_leave():
         "Reason": reason,
         "Status": "Pending"
     }
-    leave_file = "leave_requests.xlsx"
-    if os.path.exists(leave_file):
-        df = pd.read_excel(leave_file)
-    else:
-        df = pd.DataFrame(columns=["Roll Number", "Name", "Start Date", "End Date", "Reason", "Status"])
     df = pd.concat([df, pd.DataFrame([leave_data])], ignore_index=True)
     df.to_excel(leave_file, index=False)
     log_message(f"Leave request submitted for {name} (Roll No: {roll_number}) from {start_date} to {end_date}. Reason: {reason}.")
@@ -436,28 +454,59 @@ def setup_gui():
     global log_widget
     root = tk.Tk()
     root.title("FaceSecure")
-    root.geometry("700x500")
-    root.configure(bg="#2C3E50")
-    style = ttk.Style()
-    style.configure("TButton", font=("Arial", 12), padding=10)
-    style.configure("T`Label", font=("Arial", 14), background="#2C3E50", foreground="white")
-    header_frame = tk.Frame(root, bg="#1A252F", pady=10)
-    header_frame.pack(fill=tk.X)
-    title_label = tk.Label(header_frame, text="Attendance", font=("Arial", 18, "bold"), bg="#1A252F", fg="white")
-    title_label.pack()
-    main_frame = tk.Frame(root, bg="#2C3E50", padx=20, pady=20)
-    main_frame.pack(expand=True)
-    button_frame = tk.Frame(main_frame, bg="#2C3E50")
-    button_frame.pack(pady=10)
-    ttk.Button(button_frame, text="Mark Attendance", command=process_image).grid(row=0, column=0, padx=15, pady=10)
-    ttk.Button(button_frame, text="Add Face", command=add_face).grid(row=0, column=1, padx=15, pady=10)
-    ttk.Button(button_frame, text="Check Warnings", command=check_warnings).grid(row=1, column=0, padx=15, pady=10)
-    ttk.Button(button_frame, text="Attendance Prediction", command=predict_attendance).grid(row=1, column=1, padx=15, pady=10)
-    ttk.Button(button_frame, text="Apply Leave", command=apply_leave).grid(row=2, column=1, padx=15, pady=10)
-    ttk.Button(button_frame, text="Check Status", command=check_leave_status).grid(row=2, column=0, padx=15, pady=10)
-    log_label = ttk.Label(main_frame, text="Logs:")
-    log_label.pack(anchor="w", pady=(20, 5))
-    log_widget = tk.Text(main_frame, width=80, height=15, wrap="word", bg="#ECF0F1", fg="#2C3E50", font=("Arial", 10))
+    root.geometry("950x600")
+    root.configure(bg="black")
+
+    left_frame = tk.Frame(root, bg="#76b5c5", width=250, height=600)
+    left_frame.pack(side="left", fill="y")
+
+    logo_label = tk.Label(left_frame, text="FaceSecure", font=("Arial", 20, "bold"), fg="#5E1AB8", bg="#76b5c5")
+    logo_label.pack(pady=(40, 10))
+    logo_path = "img2.jpg"
+    if logo_path:
+        logo_img = Image.open(logo_path)
+        logo_img = logo_img.resize((100, 50), Image.Resampling.LANCZOS)
+        logo_tk = ImageTk.PhotoImage(logo_img)
+        logo_label = tk.Label(left_frame, image=logo_tk, bg="#5E1AB8")
+        logo_label.pack(pady=(10, 10))
+    else:
+        logo_label = tk.Label(left_frame, text="FaceSecure", font=("Arial", 20, "bold"), fg="#5E1AB8", bg="5E1AB8")
+        logo_label.pack(pady=(30, 10))
+
+    btn_style = {"font": ("Arial", 10, "bold"), "fg": "white", "bg": "#5E1AB8", "width": 16, "height": 2}
+
+    mark_attendance_btn = tk.Button(left_frame, text="Mark Attendance",command=process_image, **btn_style)
+    mark_attendance_btn.pack(pady=10)
+
+    predict_attendance_btn = tk.Button(left_frame, text="Predict Attendance",command=predict_attendance, **btn_style)
+    predict_attendance_btn.pack(pady=10)
+
+    check_warning_btn = tk.Button(left_frame, text="Check Warning",command=check_warnings, **btn_style)
+    check_warning_btn.pack(pady=10)
+
+    apply_leave_btn = tk.Button(left_frame, text="Apply Leave",command=apply_leave, **btn_style)
+    apply_leave_btn.pack(pady=10)
+
+    check_leave_status_btn = tk.Button(left_frame, text="Check Leave Status",command=check_leave_status, **btn_style)
+    check_leave_status_btn.pack(pady=10)
+
+    add_face_btn = tk.Button(left_frame, text="Add Face",command=add_face, **btn_style)
+    add_face_btn.pack(pady=10)
+
+    right_frame = tk.Frame(root, bg="#5E1AB8", width=700, height=600)
+    right_frame.pack(side="right", fill="both", expand=True)
+
+    face_image_path = "img1.jpg"
+    if face_image_path:
+        face_img = Image.open(face_image_path)
+        face_img = face_img.resize((800, 300), Image.Resampling.LANCZOS)
+        face_tk = ImageTk.PhotoImage(face_img)
+
+        face_label = tk.Label(right_frame, image=face_tk, bg="#5E1AB8")
+        face_label.pack(fill="both", expand=True)
+    log_widget = tk.Text(right_frame, width=100, height=10, wrap="word", font=("Arial", 10))
+    log_widget.pack(fill="x", padx=10, pady=(4, 6)) 
+
     log_widget.pack()
     root.mainloop()
 
