@@ -473,8 +473,6 @@ def setup_gui():
         logo_label = tk.Label(left_frame, text="FaceSecure", font=("Arial", 20, "bold"), fg="#5E1AB8", bg="5E1AB8")
         logo_label.pack(pady=(30, 10))
 
-    btn_style = {"font": ("Arial", 10, "bold"), "fg": "white", "bg": "#5E1AB8", "width": 16, "height": 2}
-
     mark_attendance_btn = tk.Button(left_frame, text="Mark Attendance",command=process_image, **btn_style)
     mark_attendance_btn.pack(pady=10)
 
@@ -493,9 +491,6 @@ def setup_gui():
     add_face_btn = tk.Button(left_frame, text="Add Face",command=add_face, **btn_style)
     add_face_btn.pack(pady=10)
 
-    right_frame = tk.Frame(root, bg="#5E1AB8", width=700, height=600)
-    right_frame.pack(side="right", fill="both", expand=True)
-
     face_image_path = "img1.jpg"
     if face_image_path:
         face_img = Image.open(face_image_path)
@@ -504,10 +499,7 @@ def setup_gui():
 
         face_label = tk.Label(right_frame, image=face_tk, bg="#5E1AB8")
         face_label.pack(fill="both", expand=True)
-    log_widget = tk.Text(right_frame, width=100, height=10, wrap="word", font=("Arial", 10))
-    log_widget.pack(fill="x", padx=10, pady=(4, 6)) 
 
-    log_widget.pack()
     root.mainloop()
 
 if __name__ == "__main__":
