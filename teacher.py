@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import tkinter as tk
 from tkinter import ttk, messagebox
+from PIL import Image, ImageTk
 
 ATTENDANCE_FOLDER = "attendance_records"
 WARNING_FILE = "warnings.xlsx"
@@ -113,60 +114,52 @@ def review_leave_requests():
     reject_btn.pack(side="right", padx=10)
     review_window.mainloop()
 
+    
 root = tk.Tk()
 root.title("FaceSecure")
+root.geometry("900x500")
+root.configure(bg="#76b5c5")
 
-button_frame = tk.Frame(root)
-button_frame.pack()
+logo_path = "img3.jpg" 
+logo_img = Image.open(logo_path)
+logo_img = logo_img.resize((80, 80), Image.Resampling.LANCZOS)
+logo_tk = ImageTk.PhotoImage(logo_img)
+logo_label = tk.Label(root, image=logo_tk, bg="#76b5c5")
+logo_label.pack(pady=(10, 5))
+
+title_label = tk.Label(root, text="FaceSecure", font=("Arial", 28, "bold"), fg="#5E1AB8", bg="#76b5c5")
+title_label.pack()
+
+button_frame = tk.Frame(root, bg="#76b5c5")
+button_frame.pack(pady=10)
+
+btn_style = {"font": ("Arial", 12, "bold"), "fg": "white", "bg": "#5E1AB8", "width": 18, "height": 2}
+
+review_leave_btn = tk.Button(button_frame, text="Review Leave", command=review_leave_requests, **btn_style)
+review_leave_btn.grid(row=0, column=0, padx=15)
 
 subject_var = tk.StringVar()
 subjects = get_subjects()
 
-ttk.Label(root, text="Select Subject:").pack()
-subject_dropdown = ttk.Combobox(root, textvariable=subject_var, values=subjects, state='readonly')
-subject_dropdown.pack()
+subject_dropdown = ttk.Combobox(button_frame, textvariable=subject_var, values=subjects, state='readonly', font=("Arial", 12))
+subject_dropdown.grid(row=0, column=1, padx=15)
 subject_dropdown.current(0)
 
-ttk.Button(root, text="View Attendance", command=load_attendance).pack()
-ttk.Button(root, text="Send Warnings", command=send_warnings).pack()
-ttk.Button(button_frame, text="Review Leave Requests", command=review_leave_requests).grid(row=2, column=1, padx=15, pady=10)
+send_warnings_btn = tk.Button(button_frame, text="Show Attendance", command=load_attendance, **btn_style)
+send_warnings_btn.grid(row=0, column=2, padx=15)
 
+send_warnings_btn = tk.Button(button_frame, text="Send Warnings", command=send_warnings, **btn_style)
+send_warnings_btn.grid(row=0, column=3, padx=15)
+
+table_frame = tk.Frame(root, bg="white")
+table_frame.pack(pady=10, fill="both", expand=True)
 
 columns = ("Roll Number", "Name", "Attendance %")
-tree = ttk.Treeview(root, columns=columns, show="headings")
+tree = ttk.Treeview(table_frame, columns=columns, show="headings", height=10)
 for col in columns:
-    tree.heading(col, text=col)
-    tree.column(col, width=120)
-tree.pack()
+    tree.heading(col, text=col, anchor="center")
+    tree.column(col, width=200, anchor="center")
+
+tree.pack(fill="both", expand=True)
+
 root.mainloop()
-
-# def setup_gui():
-#     global log_widget
-#     root = tk.Tk()
-#     root.title("Attendance")
-#     root.geometry("700x500")
-#     root.configure(bg="#2C3E50")
-#     style = ttk.Style()
-#     style.configure("TButton", font=("Arial", 12), padding=10)
-#     style.configure("T`Label", font=("Arial", 14), background="#2C3E50", foreground="white")
-#     header_frame = tk.Frame(root, bg="#1A252F", pady=10)
-#     header_frame.pack(fill=tk.X)
-#     title_label = tk.Label(header_frame, text="Attendance", font=("Arial", 18, "bold"), bg="#1A252F", fg="white")
-#     title_label.pack()
-#     main_frame = tk.Frame(root, bg="#2C3E50", padx=20, pady=20)
-#     main_frame.pack(expand=True)
-#     button_frame = tk.Frame(main_frame, bg="#2C3E50")
-#     button_frame.pack(pady=10)
-#     ttk.Button(button_frame, text="Mark Attendance", command=process_image).grid(row=0, column=0, padx=15, pady=10)
-#     ttk.Button(button_frame, text="Add Face", command=add_face).grid(row=0, column=1, padx=15, pady=10)
-#     ttk.Button(button_frame, text="Check Warnings", command=check_warnings).grid(row=1, column=0, padx=15, pady=10)
-#     ttk.Button(button_frame, text="Attendance Prediction", command=predict_attendance).grid(row=1, column=1, padx=15, pady=10)
-#     log_label = ttk.Label(main_frame, text="Logs:")
-#     log_label.pack(anchor="w", pady=(20, 5))
-#     log_widget = tk.Text(main_frame, width=80, height=15, wrap="word", bg="#ECF0F1", fg="#2C3E50", font=("Arial", 10))
-#     log_widget.pack()
-#     root.mainloop()
-
-# if __name__ == "__main__":
-#     initialize_excel()
-#     setup_gui()
