@@ -439,7 +439,7 @@ def apply_leave():
         if latest_status in ["Pending"]:
             messagebox.showerror("Error", "You already have a leave request that is Pending!")
             return
-        if latest_status in ["Approved"]:
+        if latest_status in ["Accepted"]:
             messagebox.showerror("Error", "You already have a leave request that is Approved!")
             return
         elif latest_status == "Rejected":
