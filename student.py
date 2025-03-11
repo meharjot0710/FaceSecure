@@ -217,22 +217,51 @@ def process_image():
     df.to_excel(excel_file, index=False)
     log_message(f"Excel file updated for {subject}.")
 
+def get_student_info():
+    dialog = tk.Toplevel()
+    dialog.title("Student Info")
+    dialog.geometry("300x200")
+    tk.Label(dialog, text="Enter Roll Number:").pack(pady=5)
+    roll_number_entry = tk.Entry(dialog)
+    roll_number_entry.pack(pady=5)
+    tk.Label(dialog, text="Enter Student Name:").pack(pady=5)
+    name_entry = tk.Entry(dialog)
+    name_entry.pack(pady=5)
+    def submit():
+        roll_number = roll_number_entry.get()
+        name = name_entry.get()
+        if roll_number and name:
+            dialog.result = (roll_number, name)
+            dialog.destroy()
+        else:
+            tk.Label(dialog, text="Both fields are required!", fg="red").pack()
+    submit_btn = tk.Button(dialog, text="Submit", command=submit)
+    submit_btn.pack(pady=10)
+    dialog.result = None
+    dialog.grab_set()
+    dialog.wait_window()
+    return dialog.result
+
 def add_face():
     filename = capture_image()
     if not filename:
         return
-    roll_number = simpledialog.askstring("Input", "Enter Roll Number:")
-    name = simpledialog.askstring("Input", "Enter Student Name:")
-    if not name or not roll_number:
+    student_info = get_student_info()
+    if not student_info:
         log_message("Operation canceled: Missing Roll Number or Name.")
         return
+    roll_number, name = student_info
+    print(roll_number)
+    print(name)
     known_faces, known_roll_numbers = load_known_faces()
     if roll_number in known_roll_numbers:
+        print("hhh")
         log_message("Roll number already exists. Cannot add duplicate entries.")
         return
     new_path = os.path.join("known_faces", f"{name}_{roll_number}.jpg")
     shutil.move(filename, new_path)
     log_message(f"New face added as {new_path}")
+
     for subject in subjects:
         file_name = os.path.join("attendance_records", f"{subject}.xlsx")
         df = pd.read_excel(file_name)
@@ -379,6 +408,7 @@ def select_dates():
     submit_button.grid(row=2, column=0, columnspan=2, pady=10)
     start_date, end_date = None, None
     root.mainloop()
+    root.destroy()
     return start_date, end_date
 
 def apply_leave():
@@ -454,52 +484,49 @@ def setup_gui():
     global log_widget
     root = tk.Tk()
     root.title("FaceSecure")
-    root.geometry("950x600")
-    root.configure(bg="black")
+    root.geometry("900x600")
+    root.configure(bg="#C5A3FF")
 
-    left_frame = tk.Frame(root, bg="#76b5c5", width=250, height=600)
-    left_frame.pack(side="left", fill="y")
+    title_label = tk.Label(root, text="FaceSecure", font=("Arial", 20, "bold"), fg="#5E1AB8", bg="#C5A3FF")
+    title_label.pack(pady=(10, 5))
+    
+    icon_path = "img2.jpg"
+    try:
+        icon_img = Image.open(icon_path)
+        icon_img = icon_img.resize((40, 40), Image.Resampling.LANCZOS)
+        icon_tk = ImageTk.PhotoImage(icon_img)
+        icon_label = tk.Label(root, image=icon_tk, bg="#C5A3FF")
+        icon_label.image = icon_tk
+        icon_label.pack()
+    except:
+        pass
 
-    logo_label = tk.Label(left_frame, text="FaceSecure", font=("Arial", 20, "bold"), fg="#5E1AB8", bg="#76b5c5")
-    logo_label.pack(pady=(40, 10))
-    logo_path = "img2.jpg"
-    if logo_path:
-        logo_img = Image.open(logo_path)
-        logo_img = logo_img.resize((100, 50), Image.Resampling.LANCZOS)
-        logo_tk = ImageTk.PhotoImage(logo_img)
-        logo_label = tk.Label(left_frame, image=logo_tk, bg="#5E1AB8")
-        logo_label.pack(pady=(10, 10))
-    else:
-        logo_label = tk.Label(left_frame, text="FaceSecure", font=("Arial", 20, "bold"), fg="#5E1AB8", bg="5E1AB8")
-        logo_label.pack(pady=(30, 10))
+    btn_style = {"font": ("Arial", 12, "bold"), "fg": "white", "bg": "#5E1AB8", "width": 18, "height": 2}
 
-    mark_attendance_btn = tk.Button(left_frame, text="Mark Attendance",command=process_image, **btn_style)
-    mark_attendance_btn.pack(pady=10)
+    button_frame = tk.Frame(root, bg="#C5A3FF")
+    button_frame.pack(pady=10)
 
-    predict_attendance_btn = tk.Button(left_frame, text="Predict Attendance",command=predict_attendance, **btn_style)
-    predict_attendance_btn.pack(pady=10)
+    mark_attendance_btn = tk.Button(button_frame, text="Mark Attendance", command=process_image, **btn_style)
+    mark_attendance_btn.grid(row=0, column=0, padx=10, pady=5)
+    
+    predict_attendance_btn = tk.Button(button_frame, text="Predict Attendance", command=predict_attendance, **btn_style)
+    predict_attendance_btn.grid(row=0, column=1, padx=10, pady=5)
+    
+    check_warning_btn = tk.Button(button_frame, text="Check Warning", command=check_warnings, **btn_style)
+    check_warning_btn.grid(row=0, column=2, padx=10, pady=5)
+    
+    add_face_btn = tk.Button(button_frame, text="Add Face", command=add_face, **btn_style)
+    add_face_btn.grid(row=1, column=0, padx=10, pady=5)
+    
+    empty_btn1 = tk.Button(button_frame, text="Apply Leave", command=apply_leave, **btn_style)
+    empty_btn1.grid(row=1, column=1, padx=10, pady=5)
+    
+    empty_btn2 = tk.Button(button_frame, text="Check Leave Status", command=check_leave_status, **btn_style)
+    empty_btn2.grid(row=1, column=2, padx=10, pady=5)
 
-    check_warning_btn = tk.Button(left_frame, text="Check Warning",command=check_warnings, **btn_style)
-    check_warning_btn.pack(pady=10)
-
-    apply_leave_btn = tk.Button(left_frame, text="Apply Leave",command=apply_leave, **btn_style)
-    apply_leave_btn.pack(pady=10)
-
-    check_leave_status_btn = tk.Button(left_frame, text="Check Leave Status",command=check_leave_status, **btn_style)
-    check_leave_status_btn.pack(pady=10)
-
-    add_face_btn = tk.Button(left_frame, text="Add Face",command=add_face, **btn_style)
-    add_face_btn.pack(pady=10)
-
-    face_image_path = "img1.jpg"
-    if face_image_path:
-        face_img = Image.open(face_image_path)
-        face_img = face_img.resize((800, 300), Image.Resampling.LANCZOS)
-        face_tk = ImageTk.PhotoImage(face_img)
-
-        face_label = tk.Label(right_frame, image=face_tk, bg="#5E1AB8")
-        face_label.pack(fill="both", expand=True)
-
+    log_widget = tk.Text(root, width=80, height=10, wrap="word", font=("Arial", 10))
+    log_widget.pack(pady=10, padx=20, fill="both", expand=True)
+    
     root.mainloop()
 
 if __name__ == "__main__":
