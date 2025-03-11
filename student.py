@@ -246,6 +246,22 @@ def add_face():
     filename = capture_image()
     if not filename:
         return
+    known_faces, known_roll_numbers = load_known_faces()
+    image = face_recognition.load_image_file(filename)
+    get_face_encodings = face_recognition.face_encodings(image)
+    recognized_students = {}
+    for face_encoding in get_face_encodings:
+        roll_number = match_face(list(known_roll_numbers.values()), face_encoding, known_roll_numbers)
+        if roll_number is not None:
+            name = roll_number_name_mapping.get(roll_number, "Unknown")
+            log_message(f"Recognized: {name} (Roll No: {roll_number})")
+            log_message(f"Your face is already registered")
+            recognized_students[roll_number] = name
+    if bool(recognized_students):
+        return
+    if not get_face_encodings:
+        log_message("No faces detected in the captured image.")
+        return
     student_info = get_student_info()
     if not student_info:
         log_message("Operation canceled: Missing Roll Number or Name.")
@@ -253,7 +269,6 @@ def add_face():
     roll_number, name = student_info
     print(roll_number)
     print(name)
-    known_faces, known_roll_numbers = load_known_faces()
     if roll_number in known_roll_numbers:
         print("hhh")
         log_message("Roll number already exists. Cannot add duplicate entries.")
@@ -261,7 +276,6 @@ def add_face():
     new_path = os.path.join("known_faces", f"{name}_{roll_number}.jpg")
     shutil.move(filename, new_path)
     log_message(f"New face added as {new_path}")
-
     for subject in subjects:
         file_name = os.path.join("attendance_records", f"{subject}.xlsx")
         df = pd.read_excel(file_name)
