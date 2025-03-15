@@ -250,13 +250,14 @@ def add_face():
     image = face_recognition.load_image_file(filename)
     get_face_encodings = face_recognition.face_encodings(image)
     recognized_students = {}
-    for face_encoding in get_face_encodings:
-        roll_number = match_face(list(known_roll_numbers.values()), face_encoding, known_roll_numbers)
-        if roll_number is not None:
-            name = roll_number_name_mapping.get(roll_number, "Unknown")
-            log_message(f"Recognized: {name} (Roll No: {roll_number})")
-            log_message(f"Your face is already registered")
-            recognized_students[roll_number] = name
+    if not bool(get_face_encodings):
+        for face_encoding in get_face_encodings:
+            roll_number = match_face(list(known_roll_numbers.values()), face_encoding, known_roll_numbers)
+            if roll_number is not None:
+                name = roll_number_name_mapping.get(roll_number, "Unknown")
+                log_message(f"Recognized: {name} (Roll No: {roll_number})")
+                log_message(f"Your face is already registered")
+                recognized_students[roll_number] = name
     if bool(recognized_students):
         return
     if not get_face_encodings:
@@ -347,7 +348,7 @@ def predict_attendance():
     if total_classes == 0:
         messagebox.showinfo("Info", "No classes conducted yet for prediction.")
         return
-    student_row = df[df["Roll Number"] == int(recognized_roll)]
+    student_row = df[df["Roll Number"] == (recognized_roll)]
     if student_row.empty:
         messagebox.showerror("Error", "No attendance record found for this student.")
         return
