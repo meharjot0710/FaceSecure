@@ -13,6 +13,7 @@ import dlib
 from scipy.spatial import distance
 from PIL import Image, ImageTk
 from tkcalendar import DateEntry
+import ttkbootstrap as ttkb
 
 os.makedirs("known_faces", exist_ok=True)
 os.makedirs("captured_faces", exist_ok=True)
@@ -250,14 +251,13 @@ def add_face():
     image = face_recognition.load_image_file(filename)
     get_face_encodings = face_recognition.face_encodings(image)
     recognized_students = {}
-    if not bool(get_face_encodings):
-        for face_encoding in get_face_encodings:
-            roll_number = match_face(list(known_roll_numbers.values()), face_encoding, known_roll_numbers)
-            if roll_number is not None:
-                name = roll_number_name_mapping.get(roll_number, "Unknown")
-                log_message(f"Recognized: {name} (Roll No: {roll_number})")
-                log_message(f"Your face is already registered")
-                recognized_students[roll_number] = name
+    for face_encoding in get_face_encodings:
+        roll_number = match_face(list(known_roll_numbers.values()), face_encoding, known_roll_numbers)
+        if roll_number is not None:
+            name = roll_number_name_mapping.get(roll_number, "Unknown")
+            log_message(f"Recognized: {name} (Roll No: {roll_number})")
+            log_message(f"Your face is already registered")
+            recognized_students[roll_number] = name
     if bool(recognized_students):
         return
     if not get_face_encodings:
@@ -348,7 +348,7 @@ def predict_attendance():
     if total_classes == 0:
         messagebox.showinfo("Info", "No classes conducted yet for prediction.")
         return
-    student_row = df[df["Roll Number"] == (recognized_roll)]
+    student_row = df[df["Roll Number"] == int(recognized_roll)]
     if student_row.empty:
         messagebox.showerror("Error", "No attendance record found for this student.")
         return
@@ -440,7 +440,7 @@ def apply_leave():
         if latest_status in ["Pending"]:
             messagebox.showerror("Error", "You already have a leave request that is Pending!")
             return
-        if latest_status in ["Accepted"]:
+        if latest_status in ["Approved"]:
             messagebox.showerror("Error", "You already have a leave request that is Approved!")
             return
         elif latest_status == "Rejected":
@@ -496,52 +496,51 @@ def check_leave_status():
     messagebox.showinfo("Leave Status", status_message)
 
 def setup_gui():
-    global log_widget
-    root = tk.Tk()
-    root.title("FaceSecure")
-    root.geometry("900x600")
-    root.configure(bg="#C5A3FF")
+    root = ttkb.Window(title="FaceSecure", themename="flatly")
+    root.geometry("1000x600")
 
-    title_label = tk.Label(root, text="FaceSecure", font=("Arial", 20, "bold"), fg="#5E1AB8", bg="#C5A3FF")
-    title_label.pack(pady=(10, 5))
-    
-    icon_path = "img2.jpg"
-    try:
-        icon_img = Image.open(icon_path)
-        icon_img = icon_img.resize((40, 40), Image.Resampling.LANCZOS)
-        icon_tk = ImageTk.PhotoImage(icon_img)
-        icon_label = tk.Label(root, image=icon_tk, bg="#C5A3FF")
-        icon_label.image = icon_tk
-        icon_label.pack()
-    except:
-        pass
+    header_frame = ttk.Frame(root, padding=20)
+    header_frame.pack(fill="x")
 
-    btn_style = {"font": ("Arial", 12, "bold"), "fg": "white", "bg": "#5E1AB8", "width": 18, "height": 2}
+    logo_path = "img2.jpg"
+    logo_img = Image.open(logo_path)
+    logo_img = logo_img.resize((60, 60), Image.Resampling.LANCZOS)
+    logo_tk = ImageTk.PhotoImage(logo_img)
+    logo_label = ttk.Label(header_frame, image=logo_tk)
+    logo_label.pack(side="left", padx=(0, 10))
 
-    button_frame = tk.Frame(root, bg="#C5A3FF")
-    button_frame.pack(pady=10)
+    title_label = ttk.Label(header_frame, text="FaceSecure", font=("Arial", 20, "bold"))
+    title_label.pack(side="left")
 
-    mark_attendance_btn = tk.Button(button_frame, text="Mark Attendance", command=process_image, **btn_style)
+    button_frame = ttk.Frame(root, padding=20)
+    button_frame.pack(fill="x")
+
+    btn_style = {"bootstyle": "primary", "width": 18, "padding": 10}
+
+    mark_attendance_btn = ttk.Button(button_frame, text="Mark Attendance", command=process_image, **btn_style)
     mark_attendance_btn.grid(row=0, column=0, padx=10, pady=5)
-    
-    predict_attendance_btn = tk.Button(button_frame, text="Predict Attendance", command=predict_attendance, **btn_style)
-    predict_attendance_btn.grid(row=0, column=1, padx=10, pady=5)
-    
-    check_warning_btn = tk.Button(button_frame, text="Check Warning", command=check_warnings, **btn_style)
-    check_warning_btn.grid(row=0, column=2, padx=10, pady=5)
-    
-    add_face_btn = tk.Button(button_frame, text="Add Face", command=add_face, **btn_style)
-    add_face_btn.grid(row=1, column=0, padx=10, pady=5)
-    
-    empty_btn1 = tk.Button(button_frame, text="Apply Leave", command=apply_leave, **btn_style)
-    empty_btn1.grid(row=1, column=1, padx=10, pady=5)
-    
-    empty_btn2 = tk.Button(button_frame, text="Check Leave Status", command=check_leave_status, **btn_style)
-    empty_btn2.grid(row=1, column=2, padx=10, pady=5)
 
-    log_widget = tk.Text(root, width=80, height=10, wrap="word", font=("Arial", 10))
-    log_widget.pack(pady=10, padx=20, fill="both", expand=True)
-    
+    predict_attendance_btn = ttk.Button(button_frame, text="Predict Attendance", command=predict_attendance, **btn_style)
+    predict_attendance_btn.grid(row=0, column=1, padx=10, pady=5)
+
+    check_warning_btn = ttk.Button(button_frame, text="Check Warning", command=check_warnings, **btn_style)
+    check_warning_btn.grid(row=0, column=2, padx=10, pady=5)
+
+    apply_leave_btn = ttk.Button(button_frame, text="Apply Leave", command=apply_leave, **btn_style)
+    apply_leave_btn.grid(row=0, column=3, padx=10, pady=5)
+
+    check_leave_status_btn = ttk.Button(button_frame, text="Check Leave Status", command=check_leave_status, **btn_style)
+    check_leave_status_btn.grid(row=0, column=4, padx=10, pady=5)
+
+    log_card = ttk.Frame(root, padding=20)
+    log_card.pack(fill="both", expand=True)
+
+    log_label = ttk.Label(log_card, text="Activity Log", font=("Arial", 18, "bold"))
+    log_label.pack(anchor="w")
+    global log_widget
+    log_widget = tk.Text(log_card, width=80, height=10, wrap="word", font=("Arial", 10))
+    log_widget.pack(fill="both", expand=True, pady=10)
+
     root.mainloop()
 
 if __name__ == "__main__":
